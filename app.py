@@ -1,48 +1,132 @@
+"""
+Aplicación principal del Agente Inteligente.
+
+Esta aplicación permite:
+1. Cargar un documento PDF o CSV.
+2. Procesar el documento y convertirlo en embeddings.
+3. Almacenar los embeddings en una base vectorial (Chroma).
+4. Recuperar el contexto más relevante según la pregunta del usuario.
+5. Enviar el contexto a Gemini para generar una respuesta.
+"""
+
 import streamlit as st
-from src.ingestion import procesar_documento
-from src.processor import crear_vector_store
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 
+# Funciones propias del proyecto
+from src.ingestion import procesar_documento
+from src.processor import crear_vector_store
+
+# Componentes de LangChain y Gemini
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# Cargar variables de entorno (.env)
 load_dotenv()
 
-st.title("🤖 Agente Inteligente Funcional")
+# Configuración de la página de Streamlit
+st.set_page_config(
+    page_title="Agente Inteligente para Documentos",
+    page_icon="🤖",
+    layout="wide"
+)
 
-uploaded_file = st.file_uploader("Sube tu documento (PDF o CSV)", type=["pdf", "csv"])
+# Título e introducción
+st.title("🤖 Agente Inteligente para Documentos")
 
+st.write(
+    """
+    Carga un documento en formato PDF o CSV y realiza preguntas
+    sobre su contenido utilizando Inteligencia Artificial.
+    """
+)
+
+# Permitir al usuario subir un archivo
+uploaded_file = st.file_uploader(
+    "Sube tu documento",
+    type=["pdf", "csv"]
+)
+
+# Solo continuar cuando exista un archivo
 if uploaded_file is not None:
-    # Procesamiento
-    texto = procesar_documento(uploaded_file)
-    
-    if texto:
-        st.success("¡Documento procesado exitosamente!")
-        with st.expander("Ver contenido extraído"):
-            st.text(texto[:1000] + "...") # Muestra solo un preview
-        
-        pregunta = st.text_input("¿Qué deseas saber sobre este documento?")
-        if st.button("Consultar"):
-            with st.spinner("Buscando en el documento..."):
-                
-                vectorstore = crear_vector_store(texto)
 
-                retriever = vectorstore.as_retriever(
-                    search_kwargs={"k": 3}
-                )
+    # Verificar si el usuario cambió el documento.
+    # Esto evita volver a generar embeddings innecesariamente.
+    if (
+        "archivo_actual" not in st.session_state
+        or st.session_state.archivo_actual != uploaded_file.name
+    ):
 
-                documentos = retriever.invoke(pregunta)
+        with st.spinner("Procesando documento..."):
 
-                contexto = "\n\n".join(
-                    doc.page_content
-                    for doc in documentos
-                )
-                
-                llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+            # Extraer el texto del archivo
+            texto = procesar_documento(uploaded_file)
 
-                prompt = ChatPromptTemplate.from_template("""
-                Eres un asistente especializado en responder preguntas únicamente utilizando la información del contexto.
+            # Validar que se haya obtenido contenido
+            if not texto:
+                st.error("No fue posible procesar el documento.")
+                st.stop()
 
-                Si la respuesta no está en el documento responde:
+            # Guardar información en memoria durante la sesión
+            st.session_state.archivo_actual = uploaded_file.name
+            st.session_state.texto = texto
+
+            # Crear la base vectorial a partir del texto
+            st.session_state.vectorstore = crear_vector_store(texto)
+
+        st.success("Documento procesado correctamente.")
+
+    # Mostrar una vista previa del documento
+    with st.expander("Vista previa del documento"):
+
+        st.text_area(
+            label="Contenido extraído",
+            value=st.session_state.texto[:1500],
+            height=250,
+            disabled=True
+        )
+
+    # Caja de texto para ingresar preguntas
+    pregunta = st.text_input(
+        "¿Qué deseas saber sobre este documento?"
+    )
+
+    # Ejecutar únicamente cuando el usuario presione el botón
+    if st.button("Consultar"):
+
+        # Validar que exista una pregunta
+        if not pregunta.strip():
+            st.warning("Por favor escribe una pregunta.")
+            st.stop()
+
+        with st.spinner("Consultando el documento..."):
+
+            # Crear un recuperador de información
+            retriever = st.session_state.vectorstore.as_retriever(
+                search_kwargs={"k": 3}
+            )
+
+            # Obtener los fragmentos más relevantes
+            documentos = retriever.invoke(pregunta)
+
+            # Unir los fragmentos recuperados
+            contexto = "\n\n".join(
+                doc.page_content
+                for doc in documentos
+            )
+
+            # Inicializar el modelo Gemini
+            llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash"
+            )
+
+            # Prompt que controla el comportamiento del modelo
+            prompt = ChatPromptTemplate.from_template(
+                """
+                Eres un asistente especializado en responder preguntas
+                utilizando únicamente la información proporcionada
+                en el contexto.
+
+                Si la respuesta no aparece en el contexto responde:
 
                 "No encontré esa información en el documento."
 
@@ -51,16 +135,21 @@ if uploaded_file is not None:
 
                 Pregunta:
                 {pregunta}
-                """)
+                """
+            )
 
-                cadena = prompt | llm
+            # Construir la cadena Prompt -> Modelo
+            cadena = prompt | llm
 
-                respuesta = cadena.invoke(
-                    {
-                        "contexto": contexto,
-                        "pregunta": pregunta
-                    }
-                )
+            # Obtener la respuesta del modelo
+            respuesta = cadena.invoke(
+                {
+                    "contexto": contexto,
+                    "pregunta": pregunta
+                }
+            )
 
-                st.write("### Respuesta:")
-                st.write(respuesta.content)
+        # Mostrar la respuesta
+        st.subheader("Respuesta")
+
+        st.write(respuesta.content)
