@@ -17,8 +17,8 @@ from src.ingestion import procesar_documento
 from src.processor import crear_vector_store
 
 # Componentes de LangChain y Gemini
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
+from src.prompts import PROMPT_RAG
+from src.llm import obtener_llm
 
 # Cargar variables de entorno (.env)
 load_dotenv()
@@ -115,31 +115,10 @@ if uploaded_file is not None:
             )
 
             # Inicializar el modelo Gemini
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash"
-            )
-
-            # Prompt que controla el comportamiento del modelo
-            prompt = ChatPromptTemplate.from_template(
-                """
-                Eres un asistente especializado en responder preguntas
-                utilizando únicamente la información proporcionada
-                en el contexto.
-
-                Si la respuesta no aparece en el contexto responde:
-
-                "No encontré esa información en el documento."
-
-                Contexto:
-                {contexto}
-
-                Pregunta:
-                {pregunta}
-                """
-            )
+            llm = obtener_llm()
 
             # Construir la cadena Prompt -> Modelo
-            cadena = prompt | llm
+            cadena = PROMPT_RAG | llm
 
             # Obtener la respuesta del modelo
             respuesta = cadena.invoke(
