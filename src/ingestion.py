@@ -10,10 +10,9 @@ Su función principal es extraer el contenido textual para
 que posteriormente pueda convertirse en embeddings.
 """
 
-import pandas as pd
-from pypdf import PdfReader
 import streamlit as st
-
+from pypdf import PdfReader
+import pandas as pd
 
 def procesar_documento(archivo):
     """

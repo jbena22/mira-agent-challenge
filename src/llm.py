@@ -1,18 +1,14 @@
 """
 Configuración del modelo de lenguaje.
-
-Este módulo centraliza la creación del modelo Gemini para
-facilitar futuros cambios de proveedor o versión.
 """
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-
-def obtener_llm():
+def obtener_llm(modelo):
     """
-    Retorna una instancia del modelo Gemini utilizado por la aplicación.
+    Retorna una instancia del modelo Gemini.
     """
 
     return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash"
+        model=modelo
     )

@@ -7,7 +7,6 @@ mantenimiento y permite reutilizarlos si la aplicación crece.
 
 from langchain_core.prompts import ChatPromptTemplate
 
-
 PROMPT_RAG = ChatPromptTemplate.from_template(
     """
     Eres un asistente especializado en responder preguntas
