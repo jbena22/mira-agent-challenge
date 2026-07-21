@@ -150,6 +150,18 @@ streamlit run app.py
 
 ---
 
+## ☁️ Aplicación desplegada
+
+Puedes probar la aplicación directamente desde el siguiente enlace:
+
+**🔗 https://mira-agent-challenge-2y4ewmwpa334ns9e5cqse3.streamlit.app/**
+
+### Vista de la aplicación
+
+![Aplicación desplegada](images/06_deploy.png)
+
+---
+
 # 💬 Ejemplos de preguntas
 
 ## Para un PDF
